@@ -20,8 +20,13 @@ template<
     typename IndicesType = int,
     int base = 0
     >
-class CooMatrix : public SparseMat<ValueType,IndicesType,base> {
+class CooMatrix : public SparseMatrix<ValueType,IndicesType,base> {
     public:
+        // This is why we require C++11, maybe I should add a C++98 compatible version
+        CooMatrix( IndicesType m,  IndicesType n,  IndicesType nz,
+                 IndicesType* irn,  IndicesType* jcn,  ValueType* val)
+            : CooMatrix(m, n, nz, irn, jcn, val, false) { }
+
         CooMatrix( IndicesType m,  IndicesType n,  IndicesType nz,
                  IndicesType* irn,  IndicesType* jcn,  ValueType* val,
                  bool reference)
@@ -37,14 +42,11 @@ class CooMatrix : public SparseMat<ValueType,IndicesType,base> {
                 this->val_ = new ValueType[this->nz_];
                 this->rows_ = new IndicesType[this->nz_];
                 this->cols_ = new IndicesType[this->nz_];
+                std::copy(val, val + nz, this->val_);
+                std::copy(irn, irn + nz, this->rows_);
+                std::copy(jcn, jcn + nz, this->cols_);
             }
         }
-        CooMatrix( IndicesType m,  IndicesType n,  IndicesType nz,
-                 IndicesType* irn,  IndicesType* jcn,  ValueType* val)
-        {
-            CooMatrix(m, n, nz, irn, jcn, val, false);
-        }
-
 
         //! Returns the entry at position @i
         ValueType val(IndicesType i) const { return this->val_[i]; }
