@@ -1,8 +1,8 @@
-#include <sparse/sparse.hpp>
-#include <sparse/coo.hpp>
+#include <gtest/gtest.h>
+#include <gmock/gmock.h>
 
-#include "gtest/gtest.h"
-#include "gmock/gmock.h"
+#include "yasl/sparse.hpp"
+#include "yasl/coo.hpp"
 
 #include <iostream>
 

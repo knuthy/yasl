@@ -16,17 +16,21 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/")
 # Testing
 ################################
 # Locate GTest
-set(GTEST_LIBRARY /usr/local/lib/libgtest.a)
-set(GTEST_MAIN_LIBRARY /usr/local/lib/libgtest_main.a)
-set(GTEST_INCLUDE_DIR /usr/local/include/)
+set(GTEST_LIBRARY $ENV{HOME}/.local/lib/libgtest.a)
+set(GTEST_MAIN_LIBRARY $ENV{HOME}/.local/lib/libgtest_main.a)
+set(GTEST_INCLUDE_DIR $ENV{HOME}/.local/include/)
 
-set(GMOCK_LIBRARY /usr/local/lib/libgmock.a)
-set(GMOCK_MAIN_LIBRARY /usr/local/lib/libgmock_main.a)
-set(GMOCK_INCLUDE_DIR /usr/local/include/)
+set(GMOCK_LIBRARY $ENV{HOME}/.local/lib/libgmock.a)
+set(GMOCK_MAIN_LIBRARY $ENV{HOME}/.local/lib/libgmock_main.a)
+set(GMOCK_INCLUDE_DIR $ENV{HOME}/.local/include/)
 
 find_package(GTest REQUIRED)
 find_package(GMock REQUIRED)
-include_directories(${GTEST_INCLUDE_DIRS} ${GMOCK_INCLUDE_DIRS})
+include_directories(
+    ${CMAKE_SOURCE_DIR}
+    ${GTEST_INCLUDE_DIRS}
+    ${GMOCK_INCLUDE_DIRS}
+    )
 
 add_executable(
     runTests 
@@ -35,6 +39,7 @@ add_executable(
 target_link_libraries(runTests
     ${GTEST_BOTH_LIBRARIES}
     ${GMOCK_BOTH_LIBRARIES}
+    pthread
 )
 
 enable_testing()
