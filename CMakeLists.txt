@@ -37,6 +37,7 @@ add_executable(
     runTests 
     test/test_sparse_matrix.cpp
     test/test_csr.cpp
+    test/test_csc.cpp
     )
 target_link_libraries(runTests
     ${GTEST_BOTH_LIBRARIES}

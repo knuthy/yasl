@@ -12,6 +12,9 @@ using namespace std;
 template< typename ValueType, typename IndicesType, int base>
 void CooToCsr(CooMatrix<ValueType,IndicesType,base> &R, CsrMatrix<ValueType,IndicesType,base> &L);
 
+template< typename ValueType, typename IndicesType, int base>
+void CooToCsc(CooMatrix<ValueType,IndicesType,base> &R, CscMatrix<ValueType,IndicesType,base> &L);
+
 //! Coordinate storage format sparse matrix
 /*!
  * @tparam ValueType the type of the entries of the matrix, for the moment only double is supported
@@ -331,8 +334,20 @@ class CooMatrix : public SparseMatrix<ValueType,IndicesType,base> {
             return csr;
         }
 
+        //! Converts the matrix to compressed column storage format
+        /*!
+         * @return the matrix in compressed column stroage format
+         */
+        CscMatrix<ValueType,IndicesType,base> toCSC()
+        {
+            CscMatrix<ValueType,IndicesType,base> csc(this->m_, this->n_, this->nz_);
+            CooToCsc(*this, csc);
+            return csc;
+        }
+
         //! Helps to convert without hassle the COO to CSR
         friend void CooToCsr<>(CooMatrix<ValueType,IndicesType,base> &R, CsrMatrix<ValueType,IndicesType,base> &L);
+        friend void CooToCsc<>(CooMatrix<ValueType,IndicesType,base> &R, CscMatrix<ValueType,IndicesType,base> &L);
 };
 
 template<typename ValueType, typename IndicesType, int base>
@@ -395,12 +410,12 @@ void CooToCsr(CooMatrix<ValueType,IndicesType,base> &R, CsrMatrix<ValueType,Indi
     }
 
     //cumsum the nnz per row to get Bp[]
-    for(IndicesType i = 0, cumsum = 0; i < R.n_; i++){
+    for(IndicesType i = 0, cumsum = 0; i < R.m_; i++){
         IndicesType temp = Bp[i];
         Bp[i] = cumsum;
         cumsum += temp;
     }
-    Bp[R.n_] = R.nz_;
+    Bp[R.m_] = R.nz_;
 
     for(IndicesType t = 0; t < R.nz_; t++){
         IndicesType row = R.rows_[t];
@@ -413,6 +428,48 @@ void CooToCsr(CooMatrix<ValueType,IndicesType,base> &R, CsrMatrix<ValueType,Indi
     }
 
     for(IndicesType i = 0, last = 0; i <= R.m_; i++){
+        IndicesType temp = Bp[i];
+        Bp[i] = last;
+        last = temp;
+    }
+
+    L.setSymmetry(R.isSymmetric);
+}
+template< typename ValueType, typename IndicesType, int base>
+void CooToCsc(CooMatrix<ValueType,IndicesType,base> &R, CscMatrix<ValueType,IndicesType,base> &L)
+{
+    // same behaviour as scipy coo->csc 
+    // (see scipy/sparse/sparsetools/coo.h)
+    IndicesType *Bp = L.pCols();
+    IndicesType *Bi = L.pRows();
+    ValueType *Bx   = L.pVal();
+
+    //compute number of non-zero entries per row of A
+    std::fill(Bp, Bp + R.n_, 0);
+
+    for (IndicesType t = 0; t < R.nz_; t++){
+        Bp[R.cols_[t]]++;
+    }
+
+    //cumsum the nnz per row to get Bp[]
+    for(IndicesType i = 0, cumsum = 0; i < R.n_; i++){
+        IndicesType temp = Bp[i];
+        Bp[i] = cumsum;
+        cumsum += temp;
+    }
+    Bp[R.n_] = R.nz_;
+
+    for(IndicesType t = 0; t < R.nz_; t++){
+        IndicesType col = R.cols_[t];
+        IndicesType dest = Bp[col];
+
+        Bi[dest] = R.rows_[t];
+        Bx[dest] = R.val_[t];
+
+        Bp[col]++;
+    }
+
+    for(IndicesType i = 0, last = 0; i <= R.n_; i++){
         IndicesType temp = Bp[i];
         Bp[i] = last;
         last = temp;
