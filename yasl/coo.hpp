@@ -9,6 +9,9 @@
 
 using namespace std;
 
+template< typename ValueType, typename IndicesType, int base>
+void CooToCsr(CooMatrix<ValueType,IndicesType,base> &R, CsrMatrix<ValueType,IndicesType,base> &L);
+
 //! Coordinate storage format sparse matrix
 /*!
  * @tparam ValueType the type of the entries of the matrix, for the moment only double is supported
@@ -71,6 +74,21 @@ class CooMatrix : public SparseMatrix<ValueType,IndicesType,base> {
             this->isSymmetric = false;
         }
     public:
+        /*!
+         * Basic constructor, initialize everything to zero
+         */
+        CooMatrix()
+        {
+            this->m_ = 0;
+            this->n_ = 0;
+            this->nz_ = 0;
+            this->val_ = NULL;
+            this->rows_ = NULL;
+            this->cols_ = NULL;
+            this->isReference = false;
+            this->isSymmetric = false;
+        }
+
         //! Creates an empty coordinate storage sparse matrix
         /*!
          * @param m number of rows
@@ -139,37 +157,49 @@ class CooMatrix : public SparseMatrix<ValueType,IndicesType,base> {
         {
             this->init( m,  n,  nz, irn, jcn, val, reference, swithToBase);
         }
-        //! Copy the right-hand side matrix into the left-hand side
+
+        //! Assign the right-hand side matrix into the left-hand side (reference)
+        /*!
+         * Returns a reference to the left-hand side matrix, if you want a copy
+         * use the constructor. If the matrix contained data, it will be deleted.
+         *
+         * @return a reference to the left-hand side
+         */
         CooMatrix& operator=(const CooMatrix &C)
         {
             this->setSymmetry(C.isSym());
 
             this->m_ = C.nRows();
             this->n_ = C.nCols();
-            this->nz_ = C.nnz();
-            if (this->val_ != NULL)
-                delete[] this->val_;
-            if (this->rows_ != NULL)
-                delete[] this->rows_;
-            if (this->cols_ != NULL)
-                delete[] this->cols_;
 
-            this->val_ = new ValueType[this->nz_];
-            this->rows_ = new IndicesType[this->nz_];
-            this->cols_ = new IndicesType[this->nz_];
-            std::copy(C.pVal(),  C.pVal()  + C.nnz(), this->val_);
-            std::copy(C.pRows(), C.pRows() + C.nnz(), this->rows_);
-            std::copy(C.pCols(), C.pCols() + C.nnz(), this->cols_);
+            if (this->nz_ != C.nnz()) {
+                this->nz_ = C.nnz();
+                if (this->val_ != NULL)
+                    delete[] this->val_;
+                if (this->rows_ != NULL)
+                    delete[] this->rows_;
+                if (this->cols_ != NULL)
+                    delete[] this->cols_;
+
+                this->val_ = new ValueType[this->nz_];
+                this->rows_ = new IndicesType[this->nz_];
+                this->cols_ = new IndicesType[this->nz_];
+            } else {
+                // be sure that everything is allocated
+                if (this->val_ == NULL)
+                    this->val_ = new ValueType[this->nz_];
+                if (this->rows_ == NULL)
+                    this->rows_ = new IndicesType[this->nz_];
+                if (this->cols_ == NULL)
+                    this->cols_ = new IndicesType[this->nz_];
+            }
+
+            std::copy(C.pVal(), C.pVal() + this->nz_, this->val_);
+            std::copy(C.pRows(), C.pRows() + this->nz_, this->rows_);
+            std::copy(C.pCols(), C.pCols() + this->nz_, this->cols_);
 
             return *this;
         }
-
-        //! Returns the entry at position @i
-        ValueType val(IndicesType i) const { return this->val_[i]; }
-        //! Returns the row indice at position @i
-        IndicesType row(IndicesType i) const { return this->rows_[i]; }
-        //! Returns the column indice at position @i
-        IndicesType col(IndicesType i) const { return this->cols_[i]; }
 
         //! Slow get (read-only) of the element at the i-th row and j-th column
         /*!
@@ -289,6 +319,20 @@ class CooMatrix : public SparseMatrix<ValueType,IndicesType,base> {
             *this = this->desym();
             return *this;
         }
+
+        //! Converts the matrix to compressed row storage format
+        /*!
+         * @return the matrix in compressed row stroage format
+         */
+        CsrMatrix<ValueType,IndicesType,base> toCSR()
+        {
+            CsrMatrix<ValueType,IndicesType,base> csr(this->m_, this->n_, this->nz_);
+            CooToCsr(*this, csr);
+            return csr;
+        }
+
+        //! Helps to convert without hassle the COO to CSR
+        friend void CooToCsr<>(CooMatrix<ValueType,IndicesType,base> &R, CsrMatrix<ValueType,IndicesType,base> &L);
 };
 
 template<typename ValueType, typename IndicesType, int base>
@@ -332,6 +376,49 @@ ostream& operator << (ostream & os, const CooMatrix<ValueType,IndicesType,base> 
          os.setf(oldf,ios::floatfield);
          os.precision(oldp);
          return os;
+}
+
+template< typename ValueType, typename IndicesType, int base>
+void CooToCsr(CooMatrix<ValueType,IndicesType,base> &R, CsrMatrix<ValueType,IndicesType,base> &L)
+{
+    // same behaviour as scipy coo->csr 
+    // (see scipy/sparse/sparsetools/coo.h)
+    IndicesType *Bp = L.pRows();
+    IndicesType *Bj = L.pCols();
+    ValueType *Bx   = L.pVal();
+
+    //compute number of non-zero entries per row of A
+    std::fill(Bp, Bp + R.m_, 0);
+
+    for (IndicesType t = 0; t < R.nz_; t++){
+        Bp[R.rows_[t]]++;
+    }
+
+    //cumsum the nnz per row to get Bp[]
+    for(IndicesType i = 0, cumsum = 0; i < R.n_; i++){
+        IndicesType temp = Bp[i];
+        Bp[i] = cumsum;
+        cumsum += temp;
+    }
+    Bp[R.n_] = R.nz_;
+
+    for(IndicesType t = 0; t < R.nz_; t++){
+        IndicesType row = R.rows_[t];
+        IndicesType dest = Bp[row];
+
+        Bj[dest] = R.cols_[t];
+        Bx[dest] = R.val_[t];
+
+        Bp[row]++;
+    }
+
+    for(IndicesType i = 0, last = 0; i <= R.m_; i++){
+        IndicesType temp = Bp[i];
+        Bp[i] = last;
+        last = temp;
+    }
+
+    L.setSymmetry(R.isSymmetric);
 }
 
 #endif // _COO_HPP_

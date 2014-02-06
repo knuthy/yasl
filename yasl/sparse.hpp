@@ -79,6 +79,23 @@ class SparseMatrix {
          */
         ValueType& operator() (IndicesType i, IndicesType j) const;
 
+
+        //! Returns the entry at position @i
+        ValueType val(IndicesType i) const { return this->val_[i]; }
+        //! Returns the row indice at position @i
+        IndicesType row(IndicesType i) const { return this->rows_[i]; }
+        //! Returns the column indice at position @i
+        IndicesType col(IndicesType i) const { return this->cols_[i]; }
 };
+
+template<typename ValueType, typename IndicesType,int base >
+class CooMatrix;
+
+template<typename ValueType, typename IndicesType,int base >
+class CscMatrix;
+
+template<typename ValueType, typename IndicesType,int base >
+class CsrMatrix;
+
 
 #endif // _SPARSE_HPP_
