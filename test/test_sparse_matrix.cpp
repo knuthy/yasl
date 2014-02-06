@@ -17,7 +17,7 @@ TEST (CooMatrix_Constructor, CoordinateConstructor)
     int n = 5;
     int nz = 8;
     int irn[8] = {0, 1, 2, 2, 3, 3, 4, 4};
-    int jcn[8] = {0, 1, 2, 4, 3, 4, 2, 1};
+    int jcn[8] = {0, 1, 2, 4, 3, 4, 2, 3};
     double val[8] = {1, 1, 1, 3, 1, 2, 3, 2};
 
     CooMatrix<> cm(m, n, nz, irn, jcn, val);
@@ -35,7 +35,7 @@ TEST (CooMatrix_Constructor, CoordinateConstructorCustomType)
     size_t n = 5;
     size_t nz = 8;
     size_t irn[8] = {0, 1, 2, 2, 3, 3, 4, 4};
-    size_t jcn[8] = {0, 1, 2, 4, 3, 4, 2, 1};
+    size_t jcn[8] = {0, 1, 2, 4, 3, 4, 2, 3};
     double val[8] = {1, 1, 1, 3, 1, 2, 3, 2};
 
     CooMatrix<double,size_t,0> cm(m, n, nz, irn, jcn, val);
@@ -53,7 +53,7 @@ TEST (CooMatrix_Constructor, CoordinateConstructorReference)
     int n = 5;
     int nz = 8;
     int irn[8] = {0, 1, 2, 2, 3, 3, 4, 4};
-    int jcn[8] = {0, 1, 2, 4, 3, 4, 2, 1};
+    int jcn[8] = {0, 1, 2, 4, 3, 4, 2, 3};
     double val[8] = {1, 1, 1, 3, 1, 2, 3, 2};
 
     CooMatrix<> cm(m, n, nz, irn, jcn, val, true);
@@ -77,7 +77,7 @@ TEST (CooMatrix_Constructor, CoordinateTranspose)
     size_t n = 5;
     size_t nz = 8;
     size_t irn[8] = {0, 1, 2, 2, 3, 3, 4, 4};
-    size_t jcn[8] = {0, 1, 2, 4, 3, 4, 2, 1};
+    size_t jcn[8] = {0, 1, 2, 4, 3, 4, 2, 3};
     double val[8] = {1, 1, 1, 3, 1, 2, 3, 2};
 
     CooMatrix<double,size_t,0> cm(m, n, nz, irn, jcn, val);
@@ -91,5 +91,38 @@ TEST (CooMatrix_Constructor, CoordinateTranspose)
     EXPECT_THAT(val, ElementsAreArray(cmT.pVal(),  cm.nnz()));
     EXPECT_THAT(irn, ElementsAreArray(cmT.pCols(), cm.nnz()));
     EXPECT_THAT(jcn, ElementsAreArray(cmT.pRows(), cm.nnz()));
+
+    cm.inPlaceTranspose();
+    EXPECT_THAT(val, ElementsAreArray(cm.pVal(),  cm.nnz()));
+    EXPECT_THAT(irn, ElementsAreArray(cm.pCols(), cm.nnz()));
+    EXPECT_THAT(jcn, ElementsAreArray(cm.pRows(), cm.nnz()));
+
 }
 
+TEST (CooMatrix_Constructor, CoordinateDesymmetrize)
+{
+    size_t m = 5;
+    size_t n = 5;
+    size_t nz = 6;
+    size_t irn[6] = {0, 1, 2, 3, 4, 4};
+    size_t jcn[6] = {0, 1, 2, 3, 2, 3};
+    double val[6] = {1, 1, 1, 1, 3, 2};
+    
+    size_t u_irn[8] = {0, 1, 2, 3, 4, 2, 4, 3};
+    size_t u_jcn[8] = {0, 1, 2, 3, 2, 4, 3, 4};
+    double u_val[8] = {1, 1, 1, 1, 3, 3, 2, 2};
+
+    CooMatrix<double,size_t,0> cm(m, n, nz, irn, jcn, val);
+    cm.setSymmetric();
+
+    EXPECT_THAT(cm.isSym(), Eq(true));
+    EXPECT_THAT(cm.get(4,3), Eq(cm.get(3,4)));
+    EXPECT_THAT(cm.get(4,4), Eq(0));
+
+    CooMatrix<double,size_t,0> cmDS = cm.desym();
+    EXPECT_THAT(cmDS.isSym(), Eq(false));
+
+    EXPECT_THAT(u_val, ElementsAreArray(cmDS.pVal(),  cmDS.nnz()));
+    EXPECT_THAT(u_irn, ElementsAreArray(cmDS.pRows(), cmDS.nnz()));
+    EXPECT_THAT(u_jcn, ElementsAreArray(cmDS.pCols(), cmDS.nnz()));
+}

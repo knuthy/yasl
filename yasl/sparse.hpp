@@ -54,6 +54,15 @@ class SparseMatrix {
         //! Return the number of nonzero elements
         IndicesType nnz() const { return this->nz_; };
 
+        //! Define the symmetry of the matrix
+        void setSymmetry(bool isSym) { this->isSymmetric = isSym; }
+        //! Define the matrix as symmetric
+        void setSymmetric() { this->isSymmetric = true; }
+        //! Define the matrix as non-symmetric
+        void setNonSymmetric() { this->isSymmetric = false; }
+        //! Get the symmetry
+        bool isSym() const { return this->isSymmetric; }
+
         //! Get (read-only) the element at the i-th row and j-th column
         /*!
          * @param i the row indice
