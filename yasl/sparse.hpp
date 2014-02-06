@@ -28,7 +28,17 @@ class SparseMatrix {
         /*!
          * Basic constructor, initialize everything to zero
          */
-        SparseMatrix() : isSymmetric(false), m_(0), n_(0), nz_(0) { }
+        SparseMatrix() : isSymmetric(false), isReference(false), m_(0), n_(0), nz_(0) { }
+
+        ~SparseMatrix()
+        {
+            // avoid double free problems by not freeing objects that belongs to others
+            if (!isReference) {
+                delete[] val_;
+                delete[] rows_;
+                delete[] cols_;
+            }
+        }
 
         //! Returns a pointer to the first element of the values vector
         ValueType *pVal() const { return val_; }
@@ -59,6 +69,7 @@ class SparseMatrix {
          * @return the element at the i-th row and j-th column
          */
         ValueType& operator() (IndicesType i, IndicesType j) const;
+
 };
 
 #endif // _SPARSE_HPP_

@@ -22,11 +22,48 @@ template<
     >
 class CooMatrix : public SparseMatrix<ValueType,IndicesType,base> {
     public:
+        //! Creates an empty coordinate storage sparse matrix
+        /*!
+         * @param m number of rows
+         * @param n number of columns
+         * @param nz number of nonzero entries
+         */
+        CooMatrix( IndicesType m,  IndicesType n,  IndicesType nz)
+        {
+            this->m_ = m;
+            this->n_ = n;
+            this->nz_ = nz;
+            this->val_ = new ValueType[this->nz_];
+            this->rows_ = new IndicesType[this->nz_];
+            this->cols_ = new IndicesType[this->nz_];
+            this->isReference = false;
+        }
+
         // This is why we require C++11, maybe I should add a C++98 compatible version
+        //
+        //! Creates an coordinate storage sparse matrix
+        /*!
+         * @param m number of rows
+         * @param n number of columns
+         * @param nz number of nonzero entries
+         * @param irn the row indices vector
+         * @param jcn the column indices vector
+         * @param val the entries vector
+         */
         CooMatrix( IndicesType m,  IndicesType n,  IndicesType nz,
                  IndicesType* irn,  IndicesType* jcn,  ValueType* val)
             : CooMatrix(m, n, nz, irn, jcn, val, false) { }
 
+        //! Creates an coordinate storage sparse matrix with vectors as reference
+        /*!
+         * @param m number of rows
+         * @param n number of columns
+         * @param nz number of nonzero entries
+         * @param irn the row indices vector
+         * @param jcn the column indices vector
+         * @param val the entries vector
+         * @param reference the vectors in the matrix are the real ones 
+         */
         CooMatrix( IndicesType m,  IndicesType n,  IndicesType nz,
                  IndicesType* irn,  IndicesType* jcn,  ValueType* val,
                  bool reference)
@@ -34,7 +71,8 @@ class CooMatrix : public SparseMatrix<ValueType,IndicesType,base> {
             this->m_ = m;
             this->n_ = n;
             this->nz_ = nz;
-            if (reference) {
+            this->isReference = reference;
+            if (this->isReference) {
                 this->val_  = val;
                 this->rows_ = irn;
                 this->cols_ = jcn;
@@ -42,9 +80,9 @@ class CooMatrix : public SparseMatrix<ValueType,IndicesType,base> {
                 this->val_ = new ValueType[this->nz_];
                 this->rows_ = new IndicesType[this->nz_];
                 this->cols_ = new IndicesType[this->nz_];
-                std::copy(val, val + nz, this->val_);
-                std::copy(irn, irn + nz, this->rows_);
-                std::copy(jcn, jcn + nz, this->cols_);
+                std::copy(val, val + this->nz_, this->val_);
+                std::copy(irn, irn + this->nz_, this->rows_);
+                std::copy(jcn, jcn + this->nz_, this->cols_);
             }
         }
 
@@ -61,7 +99,16 @@ class CooMatrix : public SparseMatrix<ValueType,IndicesType,base> {
          * @param j the column indice
          * @return the element at the i-th row and j-th column
          */
-        ValueType get(IndicesType i, IndicesType j) const;
+        ValueType get(IndicesType i, IndicesType j) const
+        {
+            for (auto t = 0; t < this->nz_; t++)
+                if (this->rows_[t] == i && this->cols_[t] == j) return this->val_[t];
+
+            // default behavior if we do not have this entry
+            if (i < this->m_ && j < this->n_) return 0.0;
+
+            return this->val_[0];
+        }
 
         //! Slow access (read/write) to the element at the i-th row and j-th column
         /*!
@@ -69,46 +116,54 @@ class CooMatrix : public SparseMatrix<ValueType,IndicesType,base> {
          * @param j the column indice
          * @return the element at the i-th row and j-th column
          */
-        ValueType& operator() (IndicesType i, IndicesType j);
+        ValueType& operator() (IndicesType i, IndicesType j)
+        {
+            for (auto t = 0; t < this->nz_; t++)
+                if (this->rows_[t] == i && this->cols_[t] == j) return this->val_[t];
 
-        //! Print all of the matrix entries and uses base = 1
-        void show();
+            std::cerr << "Array element (" << i << "," << j ;
+            std::cerr << ") not in sparse structure -- cannot access." << "\n";
+            /// @todo: define exceptions
+            exit(1);
+            return this->val_[0];
+        }
 
-        //! Print all of the matrix entries and uses @customBase as base
-        void show(int customBase);
+        //! Transpose the matrix
+        /*!
+         * @param refrence if true, the vectors in the resulting matrix share the same memory
+         * @return the transpose of the matrix
+         */
+        CooMatrix transpose(bool reference) const
+        {
+            return CooMatrix<ValueType,IndicesType,base>(this->n_, this->m_, this->nz_,
+                    this->cols_, this->rows_, this->val_, reference);
+        }
+
+        //! Transpose the matrix
+        /*!
+         * @return a copy of the transpose of the matrix
+         */
+        CooMatrix transpose() const
+        {
+            return this->transpose(false);
+        }
+
+        //! Transpose the matrix, inplace
+        /*!
+         * @return the transpose of the matrix
+         */
+        CooMatrix inPlaceTranspose(){
+            CooMatrix mT = this->transpose();
+            this = mT;
+        }
 };
-
-template<typename ValueType, typename IndicesType, int base>
-ValueType& CooMatrix<ValueType,IndicesType,base>::operator() (IndicesType i, IndicesType j)
-{
-    for (int t = 0; t < this->nz_; t++)
-        if (this->rows_[t] == i && this->cols_[t] == j) return this->val_[t];
-
-    std::cerr << "Array element (" << i << "," << j ;
-    std::cerr << ") not in sparse structure -- cannot access." << "\n";
-    /// @todo: define exceptions
-    exit(1);
-    return this->val_[0];
-}
-
-template<typename ValueType, typename IndicesType, int base>
-ValueType CooMatrix<ValueType,IndicesType,base>::get(IndicesType i, IndicesType j) const
-{
-    for (int t = 0; t < this->nz_; t++)
-        if (this->rows_[t] == i && this->cols_[t] == j) return this->val_[t];
-
-    // default behavior if we do not have this entry
-    if (i < this->m_ && j < this->n_) return 0.0;
-
-    return this->val_[0];
-}
 
 template<typename ValueType, typename IndicesType, int base>
 ostream& operator << (ostream & os, const CooMatrix<ValueType,IndicesType,base> & mat)
 {
-         IndicesType nnz = mat.nnz();
-         IndicesType M = mat.nRows();
-         IndicesType N = mat.nCols();
+         auto nnz = mat.nnz();
+         auto M = mat.nRows();
+         auto N = mat.nCols();
          IndicesType rowp1, colp1;
          int flag = 0;
 

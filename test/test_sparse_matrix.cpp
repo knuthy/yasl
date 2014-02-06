@@ -70,3 +70,26 @@ TEST (CooMatrix_Constructor, CoordinateConstructorReference)
     EXPECT_THAT(cm.pRows(),Eq(irn));
     EXPECT_THAT(cm.pCols(),Eq(jcn));
 }
+
+TEST (CooMatrix_Constructor, CoordinateTranspose)
+{
+    size_t m = 5;
+    size_t n = 5;
+    size_t nz = 8;
+    size_t irn[8] = {0, 1, 2, 2, 3, 3, 4, 4};
+    size_t jcn[8] = {0, 1, 2, 4, 3, 4, 2, 1};
+    double val[8] = {1, 1, 1, 3, 1, 2, 3, 2};
+
+    CooMatrix<double,size_t,0> cm(m, n, nz, irn, jcn, val);
+
+    CooMatrix<double,size_t,0> cmTRef = cm.transpose(true);
+    EXPECT_THAT(cmTRef.pVal(),Eq(cm.pVal()));
+    EXPECT_THAT(cmTRef.pRows(),Eq(cm.pCols()));
+    EXPECT_THAT(cmTRef.pCols(),Eq(cm.pRows()));
+
+    CooMatrix<double,size_t,0> cmT = cm.transpose();
+    EXPECT_THAT(val, ElementsAreArray(cmT.pVal(),  cm.nnz()));
+    EXPECT_THAT(irn, ElementsAreArray(cmT.pCols(), cm.nnz()));
+    EXPECT_THAT(jcn, ElementsAreArray(cmT.pRows(), cm.nnz()));
+}
+
