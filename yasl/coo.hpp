@@ -21,39 +21,7 @@ template<
     int base = 0
     >
 class CooMatrix : public SparseMatrix<ValueType,IndicesType,base> {
-    public:
-        //! Creates an empty coordinate storage sparse matrix
-        /*!
-         * @param m number of rows
-         * @param n number of columns
-         * @param nz number of nonzero entries
-         */
-        CooMatrix( IndicesType m,  IndicesType n,  IndicesType nz)
-        {
-            this->m_ = m;
-            this->n_ = n;
-            this->nz_ = nz;
-            this->val_ = new ValueType[this->nz_];
-            this->rows_ = new IndicesType[this->nz_];
-            this->cols_ = new IndicesType[this->nz_];
-            this->isReference = false;
-        }
-
-        // This is why we require C++11, maybe I should add a C++98 compatible version
-        //
-        //! Creates an coordinate storage sparse matrix
-        /*!
-         * @param m number of rows
-         * @param n number of columns
-         * @param nz number of nonzero entries
-         * @param irn the row indices vector
-         * @param jcn the column indices vector
-         * @param val the entries vector
-         */
-        CooMatrix( IndicesType m,  IndicesType n,  IndicesType nz,
-                 IndicesType* irn,  IndicesType* jcn,  ValueType* val)
-            : CooMatrix(m, n, nz, irn, jcn, val, false) { }
-
+    protected:
         //! Creates an coordinate storage sparse matrix with vectors as reference
         /*!
          * @param m number of rows
@@ -64,7 +32,7 @@ class CooMatrix : public SparseMatrix<ValueType,IndicesType,base> {
          * @param val the entries vector
          * @param reference the vectors in the matrix are the real ones 
          */
-        CooMatrix( IndicesType m,  IndicesType n,  IndicesType nz,
+        void init( IndicesType m,  IndicesType n,  IndicesType nz,
                  IndicesType* irn,  IndicesType* jcn,  ValueType* val,
                  bool reference)
         {
@@ -85,6 +53,56 @@ class CooMatrix : public SparseMatrix<ValueType,IndicesType,base> {
                 std::copy(jcn, jcn + this->nz_, this->cols_);
             }
         }
+    public:
+        //! Creates an empty coordinate storage sparse matrix
+        /*!
+         * @param m number of rows
+         * @param n number of columns
+         * @param nz number of nonzero entries
+         */
+        CooMatrix( IndicesType m,  IndicesType n,  IndicesType nz)
+        {
+            this->m_ = m;
+            this->n_ = n;
+            this->nz_ = nz;
+            this->val_ = new ValueType[this->nz_];
+            this->rows_ = new IndicesType[this->nz_];
+            this->cols_ = new IndicesType[this->nz_];
+            this->isReference = false;
+        }
+
+
+        //! Creates an coordinate storage sparse matrix
+        /*!
+         * @param m number of rows
+         * @param n number of columns
+         * @param nz number of nonzero entries
+         * @param irn the row indices vector
+         * @param jcn the column indices vector
+         * @param val the entries vector
+         */
+        CooMatrix( IndicesType m,  IndicesType n,  IndicesType nz,
+                 IndicesType* irn,  IndicesType* jcn,  ValueType* val)
+        {
+            this->init(m, n, nz, irn, jcn, val, false);
+        }
+
+        //! Creates an coordinate storage sparse matrix with vectors as reference
+        /*!
+         * @param m number of rows
+         * @param n number of columns
+         * @param nz number of nonzero entries
+         * @param irn the row indices vector
+         * @param jcn the column indices vector
+         * @param val the entries vector
+         * @param reference the vectors in the matrix are the real ones 
+         */
+        CooMatrix( IndicesType m,  IndicesType n,  IndicesType nz,
+                 IndicesType* irn,  IndicesType* jcn,  ValueType* val,
+                 bool reference)
+        {
+            this->init(m, n, nz, irn, jcn, val, reference);
+        }
 
         //! Returns the entry at position @i
         ValueType val(IndicesType i) const { return this->val_[i]; }
@@ -101,7 +119,7 @@ class CooMatrix : public SparseMatrix<ValueType,IndicesType,base> {
          */
         ValueType get(IndicesType i, IndicesType j) const
         {
-            for (auto t = 0; t < this->nz_; t++)
+            for (IndicesType t = 0; t < this->nz_; t++)
                 if (this->rows_[t] == i && this->cols_[t] == j) return this->val_[t];
 
             // default behavior if we do not have this entry
@@ -118,7 +136,7 @@ class CooMatrix : public SparseMatrix<ValueType,IndicesType,base> {
          */
         ValueType& operator() (IndicesType i, IndicesType j)
         {
-            for (auto t = 0; t < this->nz_; t++)
+            for (IndicesType t = 0; t < this->nz_; t++)
                 if (this->rows_[t] == i && this->cols_[t] == j) return this->val_[t];
 
             std::cerr << "Array element (" << i << "," << j ;
@@ -161,9 +179,9 @@ class CooMatrix : public SparseMatrix<ValueType,IndicesType,base> {
 template<typename ValueType, typename IndicesType, int base>
 ostream& operator << (ostream & os, const CooMatrix<ValueType,IndicesType,base> & mat)
 {
-         auto nnz = mat.nnz();
-         auto M = mat.nRows();
-         auto N = mat.nCols();
+         IndicesType nnz = mat.nnz();
+         IndicesType M = mat.nRows();
+         IndicesType N = mat.nCols();
          IndicesType rowp1, colp1;
          int flag = 0;
 
